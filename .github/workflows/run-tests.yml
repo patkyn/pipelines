@@ -26,11 +26,17 @@ jobs:
       with:
         java-version: '17'
         distribution: 'zulu'
-        cache: maven
-    - name: Build with Maven
+    - name: Cache Maven packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+    - name: Build and Run ALA tests with Maven
       run: |
         mvn spotless:apply clean package -Dmaven.test.skip=true -DskipTests
-        cd livingatlas/
+        cd livingatlas
         mvn clean package -P livingatlas-artifacts
         mvn verify -P livingatlas-artifacts           
            
