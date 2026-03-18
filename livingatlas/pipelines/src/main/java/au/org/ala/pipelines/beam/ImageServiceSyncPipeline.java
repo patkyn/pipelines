@@ -139,6 +139,8 @@ public class ImageServiceSyncPipeline {
 
       // download the mapping from the image service
       String outputDir = downloadImageMapping(options);
+      // String outputDir =
+      // "/Users/koh032/workspace/pipelines-code/ala/pipelines/livingatlas/pipelines/src/test/resources/image-service/dr342/export.csv.gz";
 
       // run sync pipeline
       run(options, outputDir);
@@ -166,6 +168,15 @@ public class ImageServiceSyncPipeline {
         FileSystemFactory.getInstance(
                 HdfsConfigs.create(options.getHdfsSiteConfig(), options.getCoreSiteConfig()))
             .getFs(options.getInputPath());
+
+    // construct output directory path
+    String outputs =
+        String.join(
+            "/",
+            options.getInputPath(),
+            options.getDatasetId(),
+            options.getAttempt().toString(),
+            "images");
 
     List<String> headers = readHeadersLowerCased(fs, imageMappingPath);
     validateHeaders(headers, REQUIRED_HEADERS);
@@ -266,6 +277,55 @@ public class ImageServiceSyncPipeline {
                         .noneMatch(
                             path -> input.getValue().getValue().getIdentifier().startsWith(path))));
 
+    // Output nonImageServiceUrls for debugging
+    nonImageServiceUrls
+        .apply(
+            ParDo.of(
+                new DoFn<KV<String, KV<String, Multimedia>>, String>() {
+                  @ProcessElement
+                  public void processElement(ProcessContext c) {
+                    KV<String, KV<String, Multimedia>> e = c.element();
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Key: ").append(e.getKey()).append("\n");
+                    sb.append("RecordID: ").append(e.getValue().getKey()).append("\n");
+                    sb.append("Multimedia: ").append(e.getValue().getValue()).append("\n");
+                    c.output(sb.toString());
+                  }
+                }))
+        .apply(
+            TextIO.write()
+                .to(outputs + "/nonImageServiceUrls-debug")
+                .withSuffix(".txt")
+                .withoutSharding());
+
+    // Debug: Group and print all values for each key in nonImageServiceUrls
+    nonImageServiceUrls
+        .apply("GroupByKey for nonImageServiceUrls", GroupByKey.create())
+        .apply(
+            "Print grouped nonImageServiceUrls",
+            ParDo.of(
+                new DoFn<KV<String, Iterable<KV<String, Multimedia>>>, String>() {
+                  @ProcessElement
+                  public void processElement(ProcessContext c) {
+                    KV<String, Iterable<KV<String, Multimedia>>> e = c.element();
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Grouped Key: ").append(e.getKey()).append("\n");
+                    for (KV<String, Multimedia> value : e.getValue()) {
+                      sb.append("  RecordID: ")
+                          .append(value.getKey())
+                          .append(", Multimedia: ")
+                          .append(value.getValue())
+                          .append("\n");
+                    }
+                    c.output(sb.toString());
+                  }
+                }))
+        .apply(
+            TextIO.write()
+                .to(outputs + "/nonImageServiceUrls-grouped-debug")
+                .withSuffix(".txt")
+                .withoutSharding());
+
     log.info("Create join collection");
     final TupleTag<Image> imageServiceExportMappingTag = new TupleTag<Image>() {};
     final TupleTag<KV<String, Multimedia>> nonImageServiceUrlsTag =
@@ -278,6 +338,31 @@ public class ImageServiceSyncPipeline {
                 imageServiceExportMapping) // images extracted from image-service
             .and(nonImageServiceUrlsTag, nonImageServiceUrls) // image
             .apply(CoGroupByKey.create());
+
+    // Output joinedCollection for debugging
+    joinedCollection
+        .apply(
+            ParDo.of(
+                new DoFn<KV<String, CoGbkResult>, String>() {
+                  @ProcessElement
+                  public void processElement(ProcessContext c) {
+                    KV<String, CoGbkResult> e = c.element();
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Key: ").append(e.getKey()).append("\n");
+                    sb.append("ImageServiceExportMapping: ")
+                        .append(e.getValue().getAll(imageServiceExportMappingTag))
+                        .append("\n");
+                    sb.append("NonImageServiceUrls: ")
+                        .append(e.getValue().getAll(nonImageServiceUrlsTag))
+                        .append("\n");
+                    c.output(sb.toString());
+                  }
+                }))
+        .apply(
+            TextIO.write()
+                .to(outputs + "/joinedCollection-debug")
+                .withSuffix(".txt")
+                .withoutSharding());
 
     // Join by URL
     PCollection<KV<String, Image>> nonImageServiceUrlCollection =
@@ -294,12 +379,10 @@ public class ImageServiceSyncPipeline {
                     Iterable<Image> imageServiceExport =
                         e.getValue().getAll(imageServiceExportMappingTag);
 
-                    if (imageIDs.iterator().hasNext()) {
-                      KV<String, Multimedia> recordIDMultimedia = imageIDs.iterator().next();
-
+                    for (KV<String, Multimedia> recordIDMultimedia : imageIDs) {
                       String recordID = recordIDMultimedia.getKey();
-                      if (imageServiceExport.iterator().hasNext()) {
-                        c.output(KV.of(recordID, imageServiceExport.iterator().next()));
+                      for (Image image : imageServiceExport) {
+                        c.output(KV.of(recordID, image));
                       }
                     }
                   }
@@ -311,9 +394,43 @@ public class ImageServiceSyncPipeline {
             .and(nonImageServiceUrlCollection)
             .apply("Flatten the non and image service", Flatten.pCollections());
 
+    combinedNotGrouped
+        .apply(
+            ParDo.of(
+                new DoFn<KV<String, Image>, String>() {
+                  @ProcessElement
+                  public void processElement(ProcessContext c) {
+                    KV<String, Image> e = c.element();
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Key: ").append(e.getKey()).append("\n");
+                    sb.append("Image: ").append(e.getValue()).append("\n");
+                    c.output(sb.toString());
+                  }
+                }))
+        .apply(
+            TextIO.write()
+                .to(outputs + "/combinedNotGrouped-debug")
+                .withSuffix(".txt")
+                .withoutSharding());
+
     // grouped by RecordID
     PCollection<KV<String, Iterable<Image>>> combined =
         combinedNotGrouped.apply("Group by RecordID", GroupByKey.create());
+
+    combined
+        .apply(
+            ParDo.of(
+                new DoFn<KV<String, Iterable<Image>>, String>() {
+                  @ProcessElement
+                  public void processElement(ProcessContext c) {
+                    KV<String, Iterable<Image>> e = c.element();
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Key: ").append(e.getKey()).append("\n");
+                    sb.append("Images: ").append(e.getValue()).append("\n");
+                    c.output(sb.toString());
+                  }
+                }))
+        .apply(TextIO.write().to(outputs + "/combined-debug").withSuffix(".txt").withoutSharding());
 
     // write output to /<DATASET-ID>/<attempt>/images/image-record-*.avro
     String avroPath =
@@ -439,12 +556,13 @@ public class ImageServiceSyncPipeline {
     log.info("Output to path " + filePath);
     Call<ResponseBody> call = service.downloadMappingFile(options.getDatasetId());
 
-    ResponseBody responseBody = SyncCall.syncCall(call);
-    InputStream inputStream = responseBody.byteStream();
     File localFile = new File(filePath);
-
-    // download the file to local
-    IOUtils.copy(inputStream, new FileOutputStream(localFile));
+    InputStream inputStream;
+    try (ResponseBody responseBody = SyncCall.syncCall(call)) {
+      inputStream = responseBody.byteStream();
+      // download the file to local
+      IOUtils.copy(inputStream, new FileOutputStream(localFile));
+    }
 
     // decompress to filesystem
     String hdfsPath =

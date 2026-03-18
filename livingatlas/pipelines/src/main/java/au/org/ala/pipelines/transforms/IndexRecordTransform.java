@@ -613,6 +613,8 @@ public class IndexRecordTransform implements Serializable, IndexFields {
           indexRecord, DwcTerm.establishmentMeans.simpleName(), br.getEstablishmentMeans());
       addDegreeOfEstablishmentValueSafely(
           indexRecord, DwcTerm.degreeOfEstablishment.simpleName(), br.getDegreeOfEstablishment());
+      addLifeStageValueSafely(
+          indexRecord, DwcTerm.lifeStage.simpleName(), br.getLifeStage());
       addTermWithAgentsSafely(
           indexRecord, DwcTerm.recordedByID.simpleName(), br.getRecordedByIds());
       addTermWithAgentsSafely(
@@ -822,6 +824,13 @@ public class IndexRecordTransform implements Serializable, IndexFields {
       IndexRecord.Builder indexRecord, String field, VocabularyConcept degreeOfEstablishment) {
     if (degreeOfEstablishment != null) {
       indexRecord.getStrings().put(field, degreeOfEstablishment.getConcept());
+    }
+  }
+
+  private static void addLifeStageValueSafely(
+          IndexRecord.Builder indexRecord, String field, VocabularyConcept lifeStage) {
+    if (lifeStage != null) {
+      indexRecord.getStrings().put(field, lifeStage.getConcept());
     }
   }
 

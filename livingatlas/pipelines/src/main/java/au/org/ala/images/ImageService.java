@@ -15,5 +15,6 @@ public interface ImageService {
       @Part("dataResourceUid") RequestBody dataResourceUid, @Part MultipartBody.Part file);
 
   @GET("ws/exportDataset/{dataResourceUid}")
+  @Streaming
   Call<ResponseBody> downloadMappingFile(@Path("dataResourceUid") String dataResourceUid);
 }

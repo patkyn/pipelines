@@ -5,14 +5,21 @@
   <parent>
     <groupId>org.gbif.pipelines</groupId>
     <artifactId>pipelines-parent</artifactId>
-    <version>3.2.23-SNAPSHOT</version>
+    <version>3.2.23-SNAPSHOT</version> <!-- somehow cannot accept ${parent.version} here :-( -->
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <groupId>au.org.ala</groupId>
   <artifactId>livingatlas</artifactId>
+  <version>${ala.project.version}</version>
   <packaging>pom</packaging>
   <name>Pipelines :: Living Atlas</name>
+
+  <properties>
+    <parent.version>3.2.23-SNAPSHOT</parent.version>
+    <ala.version>1.0</ala.version>
+    <ala.project.version>${parent.version}-ala.${ala.version}</ala.project.version>
+  </properties>
 
   <modules>
     <module>pipelines</module>

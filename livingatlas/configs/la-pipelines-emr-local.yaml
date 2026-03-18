@@ -6,29 +6,30 @@ dwca-avro:
   tempLocation: /data/biocache-load/{datasetId}
 
 collectory:
-  wsUrl: REGISTRY_URL
+  wsUrl: https://collections-test.ala.org.au/ws/
   httpHeaders:
     Authorization: ALA_API_KEY
 
 alaNameMatch:
-  wsUrl: NAME_MATCHING_URL
+  wsUrl: https://namematching-ws.test.ala.org.au/
 
 uuid:
   throwErrorOnValidationFail: false
 
 sds:
-  wsUrl: SDS_URL
+  wsUrl: https://sensitive-ws.test.ala.org.au/
 
 imageService:
-  wsUrl: IMAGES_URL
+  wsUrl: https://images-test.ala.org.au/
+  timeoutSec: 300
   httpHeaders:
     apiKey: ALA_API_KEY
 
 speciesListService:
-  wsUrl: LISTS_URL
+  wsUrl: https://lists.ala.org.au/
 
 samplingService:
-  wsUrl: SAMPLING_URL
+  wsUrl: https://sampling.ala.org.au/sampling-service/
 
 solr:
   zkHost: ZK_URL

@@ -1,13 +1,18 @@
 package au.org.ala.pipelines.beam;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import au.org.ala.pipelines.options.ImageServicePipelineOptions;
+import au.org.ala.util.AvroUtils;
 import au.org.ala.util.IntegrationTestUtils;
 import au.org.ala.util.TestUtils;
 import au.org.ala.utils.ValidationUtils;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.gbif.pipelines.common.beam.options.DwcaPipelineOptions;
 import org.gbif.pipelines.common.beam.options.PipelinesOptionsFactory;
@@ -96,5 +101,20 @@ public class ImageServicePipelineTestIT {
     TestUtils.compressGzip(imageServiceExportPath, imageServiceExportPathGz);
 
     ImageServiceSyncPipeline.run(imageOptions, imageServiceExportPathGz);
+
+    Map<String, String> imagesAvro =
+        AvroUtils.readKeysForPath(
+            "/tmp/la-pipelines-test/image-service/dr893/1/images/image-record-*.avro");
+
+    assertTrue(
+        imagesAvro
+            .keySet()
+            .containsAll(
+                Arrays.asList("not-an-uuid-1", "not-an-uuid-2", "not-an-uuid-3", "not-an-uuid-4")));
+    assertFalse(imagesAvro.containsKey("not-an-uuid-5"));
+
+    // println("Generated keys: " + imagesAvro.keySet());
+    // check generated keys are present
+    // assertTrue(imagesAvro.containsKey("dr1864|3|12/12/01"));
   }
 }
