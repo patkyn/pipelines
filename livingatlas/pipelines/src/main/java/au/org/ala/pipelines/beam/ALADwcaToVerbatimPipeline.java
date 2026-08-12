@@ -47,6 +47,11 @@ public class ALADwcaToVerbatimPipeline {
 
   public static void run(DwcaToVerbatimPipelineOptions options) throws Exception {
 
+    // System.out.println(
+    //    "SLF4J implementation: " + org.slf4j.LoggerFactory.getILoggerFactory().getClass());
+    // System.out.println(
+    //    org.slf4j.LoggerFactory.class.getProtectionDomain().getCodeSource().getLocation());
+    
     MDC.put("datasetKey", options.getDatasetId());
     MDC.put("attempt", options.getAttempt().toString());
     MDC.put("step", StepType.DWCA_TO_VERBATIM.name());
